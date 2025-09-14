@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Modern To-Do List</title>
+  <title>To-Do List</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = { darkMode: 'class' }
@@ -27,7 +27,7 @@
     }
   </style>
 </head>
-<body class="bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 min-h-screen flex items-center justify-center transition">
+<body class="bg-gradient-to-br from-gray-900 via-gray-800 to-indigo-900 min-h-screen flex items-center justify-center transition">
 
   <div class="w-full max-w-md bg-white/20 dark:bg-black/40 backdrop-blur-lg rounded-2xl shadow-xl p-6 relative">
     <!-- Header -->
@@ -87,6 +87,14 @@
 
     <!-- Task List -->
     <ul id="taskList" class="space-y-2"></ul>
+
+    <!-- Hapus Semua -->
+    <div class="mt-4 text-center">
+      <button onclick="clearAllTasks()" 
+        class="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg transition">
+        🗑️ Hapus Semua
+      </button>
+    </div>
   </div>
 
   <!-- 🎉 Modal Sambutan -->
@@ -132,7 +140,6 @@
       progressBar.style.width = percent + "%";
       progressText.textContent = `${percent}% selesai (${done}/${total})`;
 
-      // 🎉 Jika semua selesai
       if (total > 0 && done === total) {
         showCelebration();
       }
@@ -211,17 +218,23 @@
       renderTasks();
     }
 
+    function clearAllTasks() {
+      if (confirm("⚠️ Yakin mau hapus semua tugas?")) {
+        tasks = [];
+        saveTasks();
+        renderTasks();
+      }
+    }
+
     taskInput.addEventListener("keypress", (e) => {
       if (e.key === "Enter") addTask();
     });
 
-    // Dark mode toggle
     darkToggle.addEventListener("click", () => {
       document.documentElement.classList.toggle("dark");
       darkToggle.textContent = document.documentElement.classList.contains("dark") ? "☀️" : "🌙";
     });
 
-    // 🔔 Cek deadline
     function checkDeadlines() {
       const today = new Date().toISOString().split("T")[0];
       tasks.forEach(task => {
@@ -231,7 +244,6 @@
       });
     }
 
-    // Drag & Drop handlers
     let draggedIndex = null;
 
     function dragStart(e) {
@@ -255,12 +267,9 @@
       renderTasks();
     }
 
-    // 🎉 Efek Sambutan
     function showCelebration() {
       celebrationModal.classList.remove("hidden");
-      victorySound.play(); // 🔊 mainkan suara victory
-
-      // buat confetti
+      victorySound.play();
       for (let i = 0; i < 50; i++) {
         const confetti = document.createElement("div");
         confetti.className = "confetti";
@@ -268,7 +277,6 @@
         confetti.style.backgroundColor = `hsl(${Math.random() * 360}, 100%, 50%)`;
         confetti.style.animationDuration = (Math.random() * 3 + 2) + "s";
         document.body.appendChild(confetti);
-
         setTimeout(() => confetti.remove(), 4000);
       }
     }
@@ -277,9 +285,7 @@
       celebrationModal.classList.add("hidden");
     }
 
-    // cek deadline saat reload
     checkDeadlines();
-
     renderTasks();
   </script>
 
