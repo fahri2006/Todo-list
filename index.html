@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Modern To-Do List</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = { darkMode: 'class' }
+  </script>
+  <style>
+    .confetti {
+      position: fixed;
+      top: -10px;
+      width: 10px;
+      height: 10px;
+      background-color: red;
+      opacity: 0.8;
+      animation: fall linear forwards;
+      z-index: 50;
+    }
+    @keyframes fall {
+      to {
+        transform: translateY(100vh) rotate(720deg);
+        opacity: 0;
+      }
+    }
+  </style>
+</head>
+<body class="bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 min-h-screen flex items-center justify-center transition">
+
+  <div class="w-full max-w-md bg-white/20 dark:bg-black/40 backdrop-blur-lg rounded-2xl shadow-xl p-6 relative">
+    <!-- Header -->
+    <div class="flex justify-between items-center mb-4">
+      <h1 class="text-2xl font-bold text-white dark:text-gray-200">✨ To-Do List ✨</h1>
+      <button id="darkToggle" 
+        class="bg-white/30 dark:bg-black/50 text-gray-800 dark:text-yellow-300 px-3 py-1 rounded-lg text-sm hover:scale-105 transition">
+        🌙
+      </button>
+    </div>
+
+    <!-- Progress Bar -->
+    <div class="mb-4">
+      <div class="w-full bg-gray-300 dark:bg-gray-700 rounded-full h-4 overflow-hidden">
+        <div id="progressBar" class="h-4 bg-green-500 transition-all duration-500" style="width: 0%;"></div>
+      </div>
+      <p id="progressText" class="text-sm text-white dark:text-gray-300 mt-1 text-center">0% selesai</p>
+    </div>
+
+    <!-- Input Task -->
+    <div class="flex flex-col gap-2 mb-3">
+      <input id="taskInput" type="text" placeholder="Tulis tugasmu..."
+        class="w-full px-3 py-2 rounded-lg focus:outline-none text-gray-800 dark:text-white dark:bg-gray-700">
+      
+      <div class="flex gap-2">
+        <select id="taskCategory" 
+          class="flex-1 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200 px-2 py-2 rounded-lg">
+          <option value="Kerja">Kerja</option>
+          <option value="Kuliah">Kuliah</option>
+          <option value="Pribadi">Pribadi</option>
+        </select>
+
+        <input type="date" id="taskDeadline" 
+          class="flex-1 px-2 py-2 rounded-lg bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-200">
+        
+        <button onclick="addTask()" 
+          class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg transition">
+          +
+        </button>
+      </div>
+    </div>
+
+    <!-- Filter + Search -->
+    <div class="mb-4 flex flex-col gap-2">
+      <select id="filterCategory" onchange="renderTasks()" 
+        class="w-full px-3 py-2 rounded-lg bg-white/70 dark:bg-gray-800 text-gray-800 dark:text-gray-200">
+        <option value="All">Semua Kategori</option>
+        <option value="Kerja">Kerja</option>
+        <option value="Kuliah">Kuliah</option>
+        <option value="Pribadi">Pribadi</option>
+      </select>
+
+      <input id="searchTask" type="text" placeholder="🔍 Cari tugas..." 
+        class="w-full px-3 py-2 rounded-lg bg-white/70 dark:bg-gray-800 text-gray-800 dark:text-gray-200"
+        onkeyup="renderTasks()">
+    </div>
+
+    <!-- Task List -->
+    <ul id="taskList" class="space-y-2"></ul>
+  </div>
+
+  <!-- 🎉 Modal Sambutan -->
+  <div id="celebrationModal" class="fixed inset-0 bg-black/50 flex items-center justify-center hidden z-50">
+    <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-6 text-center animate-bounce">
+      <h2 class="text-2xl font-bold text-indigo-600 dark:text-indigo-300">🎉 Selamat! 🎉</h2>
+      <p class="mt-2 text-gray-700 dark:text-gray-300">Kamu sudah menyelesaikan semua tugas! Mantap 💯</p>
+      <button onclick="closeCelebration()" 
+        class="mt-4 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg transition">
+        Tutup
+      </button>
+    </div>
+  </div>
+
+  <!-- 🔊 Audio Victory -->
+  <audio id="victorySound" preload="auto">
+    <source src="https://assets.mixkit.co/sfx/preview/mixkit-game-level-completed-2059.mp3" type="audio/mpeg">
+  </audio>
+
+  <script>
+    const taskInput = document.getElementById("taskInput");
+    const taskCategory = document.getElementById("taskCategory");
+    const taskDeadline = document.getElementById("taskDeadline");
+    const taskList = document.getElementById("taskList");
+    const filterCategory = document.getElementById("filterCategory");
+    const searchTask = document.getElementById("searchTask");
+    const darkToggle = document.getElementById("darkToggle");
+    const progressBar = document.getElementById("progressBar");
+    const progressText = document.getElementById("progressText");
+    const celebrationModal = document.getElementById("celebrationModal");
+    const victorySound = document.getElementById("victorySound");
+
+    let tasks = JSON.parse(localStorage.getItem("tasks")) || [];
+
+    function saveTasks() {
+      localStorage.setItem("tasks", JSON.stringify(tasks));
+    }
+
+    function updateProgress() {
+      const total = tasks.length;
+      const done = tasks.filter(t => t.done).length;
+      const percent = total === 0 ? 0 : Math.round((done / total) * 100);
+      progressBar.style.width = percent + "%";
+      progressText.textContent = `${percent}% selesai (${done}/${total})`;
+
+      // 🎉 Jika semua selesai
+      if (total > 0 && done === total) {
+        showCelebration();
+      }
+    }
+
+    function renderTasks() {
+      taskList.innerHTML = "";
+      const filter = filterCategory.value;
+      const search = searchTask.value.toLowerCase();
+
+      tasks
+        .filter(task => 
+          (filter === "All" || task.category === filter) &&
+          (task.text.toLowerCase().includes(search))
+        )
+        .forEach((task, index) => {
+          const li = document.createElement("li");
+          li.className = "flex justify-between items-center bg-white/70 dark:bg-gray-800 rounded-lg px-3 py-2 shadow hover:scale-[1.02] transition";
+          
+          li.setAttribute("draggable", "true");
+          li.setAttribute("data-index", index);
+          li.ondragstart = dragStart;
+          li.ondragover = dragOver;
+          li.ondrop = dropTask;
+
+          const left = document.createElement("div");
+          left.className = "flex flex-col cursor-pointer";
+          left.onclick = () => toggleTask(index);
+
+          const span = document.createElement("span");
+          span.textContent = task.text;
+          span.className = (task.done ? "line-through text-gray-500" : "text-gray-800 dark:text-gray-200");
+
+          const info = document.createElement("small");
+          info.className = "text-xs text-indigo-600 dark:text-indigo-400";
+          info.textContent = `[${task.category}] ${task.deadline ? " • Deadline: " + task.deadline : ""}`;
+
+          left.appendChild(span);
+          left.appendChild(info);
+
+          const delBtn = document.createElement("button");
+          delBtn.textContent = "✖";
+          delBtn.className = "text-red-500 hover:text-red-700";
+          delBtn.onclick = () => deleteTask(index);
+
+          li.appendChild(left);
+          li.appendChild(delBtn);
+          taskList.appendChild(li);
+        });
+
+      updateProgress();
+    }
+
+    function addTask() {
+      const taskText = taskInput.value.trim();
+      const category = taskCategory.value;
+      const deadline = taskDeadline.value;
+      if (taskText === "") return;
+
+      tasks.push({ text: taskText, category: category, deadline: deadline, done: false });
+      saveTasks();
+      renderTasks();
+      taskInput.value = "";
+      taskDeadline.value = "";
+    }
+
+    function toggleTask(index) {
+      tasks[index].done = !tasks[index].done;
+      saveTasks();
+      renderTasks();
+    }
+
+    function deleteTask(index) {
+      tasks.splice(index, 1);
+      saveTasks();
+      renderTasks();
+    }
+
+    taskInput.addEventListener("keypress", (e) => {
+      if (e.key === "Enter") addTask();
+    });
+
+    // Dark mode toggle
+    darkToggle.addEventListener("click", () => {
+      document.documentElement.classList.toggle("dark");
+      darkToggle.textContent = document.documentElement.classList.contains("dark") ? "☀️" : "🌙";
+    });
+
+    // 🔔 Cek deadline
+    function checkDeadlines() {
+      const today = new Date().toISOString().split("T")[0];
+      tasks.forEach(task => {
+        if (task.deadline === today && !task.done) {
+          alert("⚠️ Deadline hari ini: " + task.text);
+        }
+      });
+    }
+
+    // Drag & Drop handlers
+    let draggedIndex = null;
+
+    function dragStart(e) {
+      draggedIndex = e.target.getAttribute("data-index");
+    }
+
+    function dragOver(e) {
+      e.preventDefault();
+    }
+
+    function dropTask(e) {
+      e.preventDefault();
+      const targetIndex = e.target.closest("li").getAttribute("data-index");
+      if (draggedIndex === null || targetIndex === null) return;
+
+      const draggedTask = tasks[draggedIndex];
+      tasks.splice(draggedIndex, 1);
+      tasks.splice(targetIndex, 0, draggedTask);
+
+      saveTasks();
+      renderTasks();
+    }
+
+    // 🎉 Efek Sambutan
+    function showCelebration() {
+      celebrationModal.classList.remove("hidden");
+      victorySound.play(); // 🔊 mainkan suara victory
+
+      // buat confetti
+      for (let i = 0; i < 50; i++) {
+        const confetti = document.createElement("div");
+        confetti.className = "confetti";
+        confetti.style.left = Math.random() * window.innerWidth + "px";
+        confetti.style.backgroundColor = `hsl(${Math.random() * 360}, 100%, 50%)`;
+        confetti.style.animationDuration = (Math.random() * 3 + 2) + "s";
+        document.body.appendChild(confetti);
+
+        setTimeout(() => confetti.remove(), 4000);
+      }
+    }
+
+    function closeCelebration() {
+      celebrationModal.classList.add("hidden");
+    }
+
+    // cek deadline saat reload
+    checkDeadlines();
+
+    renderTasks();
+  </script>
+
+</body>
+</html>
